@@ -548,3 +548,54 @@ goalTitlePrefix(title)                     // 前 10 个字符，按字符切（
 
 选了 A，因为「名字被页面偷偷改写」更像 bug；B 的实现只需一个 selector，改主意成本很低。
 
+
+---
+
+## 10. 开源发布（2026-10-22 15:20）
+
+推到 <https://github.com/jiumigu/stepone>（`main`，MIT）。远端原有一个 GitHub 自动生成的 `Initial commit`（只有一行 README 描述），所以没有直接 `git init` 后强推，而是先把历史对齐：
+
+```bash
+git init -b main && git remote add origin …
+git fetch origin && git reset --soft origin/main   # HEAD 落在远端提交上，工作区不动
+git add -A && git commit                            # 单条提交叠在 Initial commit 之上
+```
+
+这样远端那条提交不会被抹掉（force push），也没有 README 双 Added 的假冲突。
+
+### 10.1 一个真实的移植缺陷：验收脚本写死了根路径
+
+`tools/shot.mjs` 注入演示数据时用的是绝对路径：
+
+```js
+const store = await import('/src/core/store.js');
+```
+
+在域名根目录部署的平台上跑得通，但 GitHub Pages 的地址是 `/<仓库名>/`，这段注入会 404 —— 于是同一个脚本在本地过、在线上挂，最坏的情况是「用线上地址验收」时误判成应用坏了。改成跟页面同源的相对解析：
+
+```js
+const store = await import(new URL('./src/core/store.js', location.href).href);
+```
+
+11 处调用一次替换完。应用代码本身没有这个问题：`index.html` 的 `link`/`script`、`manifest` 的 `start_url`/`scope`/`icons`、`sw.js` 的注册路径全是相对写法。
+
+### 10.2 子目录部署实测（模拟 GitHub Pages）
+
+把仓库 `rsync` 到 `/tmp/pages-sim/stepone/`，用 `http.server` 从父目录起服务，访问 `http://127.0.0.1:8124/stepone/index.html`：
+
+| 断言 | 结果 |
+|---|---|
+| 控制台 | 无报错 |
+| 失败资源 | 无（`performance.getEntriesByType('resource')` 全 2xx） |
+| `manifest` 抓取 | `200 application/manifest+json` |
+| Service Worker 作用域 | `http://127.0.0.1:8124/stepone/`（收在子目录内，不会污染同域其它站点） |
+| 样式生效 | `rgb(244, 241, 236)` |
+| 40 项逻辑断言 / 日历归属 / 补前缀 | 全部通过（与根目录跑结果一致） |
+
+结论：GitHub Pages 开启后 `https://jiumigu.github.io/stepone/` 可直接用，**且这条地址上 PWA 能正常安装** —— 正好补掉 WorkBuddy 分享链接的短板（分享码闸门拦浏览器抓 `manifest`）。
+
+### 10.3 进仓库的与不进的
+
+`.gitignore`：`.DS_Store`、`.wbapp_*`、`.workbuddy/`、`node_modules/`、`*.zip`。
+
+平台标记文件（`.wbapp_*.genie`）和本地工作区日志（`.workbuddy/memory/`）不进公开仓库；`screenshots/` 全部进了，包括 `_v1/` 那版响应式改造前的截图 —— 前后对照本身就是设计过程的一部分。

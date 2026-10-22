@@ -64,7 +64,7 @@ cd stepone && python3 -m http.server 8080
 
 ## 给评委的技术说明（可放「作品介绍」下半段）
 
-- **形态**：纯静态单页应用，零依赖、零构建、零后端。29 个文件约 5,100 行，`git clone` 后一条 `python3 -m http.server` 就能跑，不需要 npm install。
+- **形态**：纯静态单页应用，零依赖、零构建、零后端。22 个源文件约 5,200 行（另含 3 个验收脚本约 960 行），`git clone` 后一条 `python3 -m http.server` 就能跑，不需要 npm install。
 - **分层**：`core/`（领域，不碰 DOM）→ `selectors/`（派生只读）→ `ui/`。三条唯一入口守住正确性：`completeTodo()` 是唯一完成口、`pushTxn()` 是唯一计分口、`recalcGoal()` 是唯一进度口径；余额不存字段，永远等于流水求和。
 - **可移植**：存储层是可替换 adapter（localStorage / 内存 mock / 将来云端只改一处），`useAdapter()` 一个钩子。
 - **可验证**：40 项逻辑验收（`node tools/smoke.mjs`，mock localStorage，无浏览器）、CDP 端到端截图与交互断言（`node tools/shot.mjs`）、以及一份 9 轮迭代的双视角审计（`audit.md`）。

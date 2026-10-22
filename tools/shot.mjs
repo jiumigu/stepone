@@ -108,12 +108,12 @@ await sleep(1400);
 // ---- 注入演示数据（走 core 的真实写入口，顺带验证逻辑在浏览器里也通）----
 const seedResult = await evaluate(`(async () => {
   localStorage.removeItem('stepone.v1');
-  const store = await import('/src/core/store.js');
-  const todos = await import('/src/core/todos.js');
-  const goals = await import('/src/core/goals.js');
-  const joy = await import('/src/core/joy.js');
-  const gifts = await import('/src/core/gifts.js');
-  const util = await import('/src/core/util.js');
+  const store = await import(new URL('./src/core/store.js', location.href).href);
+  const todos = await import(new URL('./src/core/todos.js', location.href).href);
+  const goals = await import(new URL('./src/core/goals.js', location.href).href);
+  const joy = await import(new URL('./src/core/joy.js', location.href).href);
+  const gifts = await import(new URL('./src/core/gifts.js', location.href).href);
+  const util = await import(new URL('./src/core/util.js', location.href).href);
 
   const today = util.todayStr();
   const back = (n) => util.addDays(today, -n);
@@ -165,7 +165,7 @@ const seedResult = await evaluate(`(async () => {
   todos.completeTodo(t2.id);
 
   // 三条重复：每天 / 工作日 / 每周一三五
-  const routines = await import('/src/core/routines.js');
+  const routines = await import(new URL('./src/core/routines.js', location.href).href);
   routines.createRoutine({ title: '拉伸 10 分钟', rule: 'daily' });
   routines.createRoutine({ title: '背 20 个单词', rule: 'weekdays' });
   routines.createRoutine({ title: '写 200 字', rule: 'weekly', weekdays: [1, 3, 5] });
@@ -180,7 +180,7 @@ const seedResult = await evaluate(`(async () => {
   gifts.addGift({ title: '去趟海边', price: 900 });
 
   store.commit((s) => { s.setting.onboarded = true; });
-  return { balance: (await import('/src/core/points.js')).balance(store.getState()) };
+  return { balance: (await import(new URL('./src/core/points.js', location.href).href)).balance(store.getState()) };
 })()`, true);
 
 console.log('seed:', JSON.stringify(seedResult));
@@ -215,8 +215,8 @@ await shoot('03-goal-detail');
 
 // 核验「里程碑名字补上目标名」：先把前两条打回裸格式，再从菜单点一次
 const backfillBefore = await evaluate(`(async () => {
-  const store = await import('/src/core/store.js');
-  const goals = await import('/src/core/goals.js');
+  const store = await import(new URL('./src/core/store.js', location.href).href);
+  const goals = await import(new URL('./src/core/goals.js', location.href).href);
   const g = store.getState().goal.find((x) => x.title === '公众号更 20 篇');
   store.commit((st) => {
     let i = 0;
@@ -243,7 +243,7 @@ await shoot('04-calendar');
 // 交互核验：计划日在未来、但已经做掉的里程碑 —— 抽屉里标题必须带删除线，
 // 勾选框不能填实（那天没做），点了要有话说（不能点了没反应）
 const dayKey = await evaluate(`(async () => {
-  const util = await import('/src/core/util.js');
+  const util = await import(new URL('./src/core/util.js', location.href).href);
   return util.addDays(util.todayStr(), 2);
 })()`, true);
 await evaluate(`document.querySelector('[data-day="${dayKey}"]').click()`);
