@@ -1,0 +1,11 @@
+{
+  "name": "stepone",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "一步 — 目标太远，先做一步。单用户手机网页应用，纯静态、零依赖。",
+  "scripts": {
+    "start": "python3 -m http.server 8080",
+    "test": "node tools/smoke.mjs"
+  }
+}

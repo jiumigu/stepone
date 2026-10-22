@@ -1,0 +1,16 @@
+# 系统与编辑器
+.DS_Store
+Thumbs.db
+*.swp
+.idea/
+.vscode/
+
+# 依赖（本项目零依赖，装了也别提交）
+node_modules/
+
+# WorkBuddy 工作区标记与本地日志
+.wbapp_*
+.workbuddy/
+
+# 打包产物
+*.zip
