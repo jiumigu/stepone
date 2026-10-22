@@ -20,6 +20,9 @@
   --tabbar-h: 62px;
   --font: -apple-system, BlinkMacSystemFont, "PingFang SC", "Hiragino Sans GB",
           "Noto Sans SC", "Microsoft YaHei", sans-serif;
+  /* 界面只有浅色一种：声明出去，原生控件（日期弹层、滚动条、选择框）
+     才不会跟着系统深色模式变成黑底，跟页面打架 */
+  color-scheme: light;
 }
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
@@ -444,6 +447,12 @@ h1, h2, h3, p { margin: 0; }
 .ms-title { font-size: 14.5px; }
 .ms-item.is-done .ms-title { color: var(--ink-3); text-decoration: line-through; }
 .ms-item.is-stale .ms-title { color: var(--ink-2); }
+/* 刚加进来的那一条闪一下，提示「它在这儿」 */
+.ms-item.is-new { animation: ms-new 1.4s ease-out; border-radius: 8px; }
+@keyframes ms-new {
+  0%, 55% { background: var(--brand-soft); }
+  100% { background: transparent; }
+}
 .ms-sub { margin-top: 2px; font-size: 12px; color: var(--ink-3); display: flex; gap: 8px; flex-wrap: wrap; }
 
 .detail-foot {
@@ -763,6 +772,29 @@ h1, h2, h3, p { margin: 0; }
   font-size: 15px;
 }
 .field textarea { height: auto; padding: 11px 13px; resize: vertical; min-height: 68px; }
+
+/* 日期输入：原生控件在 web 上默认很挤 —— 数字贴着右边框、日历图标只有 12px 的点击区。
+   给它多一点高度和横向余量，并把图标做成看得见可点的样子。 */
+.field input[type="date"] {
+  min-height: 46px;
+  padding-right: 10px;
+  letter-spacing: .02em;
+  font-variant-numeric: tabular-nums;
+}
+.field input[type="date"]::-webkit-calendar-picker-indicator {
+  width: 18px;
+  height: 18px;
+  padding: 4px;
+  margin-left: 4px;
+  border-radius: 6px;
+  cursor: pointer;
+  opacity: .5;
+  transition: opacity .15s, background .15s;
+}
+.field input[type="date"]::-webkit-calendar-picker-indicator:hover {
+  opacity: 1;
+  background: var(--brand-soft);
+}
 .field input:focus, .field textarea:focus { border-color: var(--brand); }
 .field-row { display: flex; gap: 10px; }
 .field-row .field { flex: 1; }
@@ -771,6 +803,8 @@ h1, h2, h3, p { margin: 0; }
 .chips--grid3 { display: grid; grid-template-columns: repeat(3, 1fr); }
 .chips--grid4 { display: grid; grid-template-columns: repeat(4, 1fr); }
 .chips--grid3 button, .chips--grid4 button { padding: 0 4px; }
+/* 日期快捷键：放在日期框下面一行，点一下就换，不用打开原生日历 */
+.chips--quick { margin-top: 9px; }
 .chips button {
   height: 34px;
   padding: 0 13px;
@@ -1034,7 +1068,35 @@ input[type="range"]::-webkit-slider-thumb {
   }
   .detail-scrim { display: none; }
 
-  .sheet { max-width: 460px; border-radius: 18px 18px 0 0; }
+  /* 抽屉在桌面端变成居中对话框。
+     贴着屏幕底边只有 260px 高的形态在 web 上是错的：原生日期弹层约 300px 高，
+     塞不下就只能往上顶，压住标题和底部的确认按钮（真实截图）。
+     改成居中、给足高度和四周留白，弹层才有地方展开。 */
+  .sheet {
+    left: 50%;
+    right: auto;
+    bottom: auto;
+    top: 50%;
+    width: 560px;
+    max-width: calc(100vw - 64px);
+    max-height: min(720px, 86dvh);
+    min-height: 200px;
+    border-radius: 18px;
+    box-shadow: 0 26px 68px rgba(24, 28, 33, .18), 0 2px 8px rgba(24, 28, 33, .06);
+    transform: translate(-50%, -50%) scale(.985);
+    opacity: 0;
+    transition: transform .2s cubic-bezier(.32, .72, 0, 1), opacity .18s;
+  }
+  .sheet-wrap.is-on .sheet {
+    transform: translate(-50%, -50%) scale(1);
+    opacity: 1;
+  }
+  .sheet-grip { display: none; }
+  .sheet-head { padding: 18px 24px 2px; }
+  .sheet-head h2 { font-size: 17px; }
+  .sheet-body { padding: 12px 24px 18px; }
+  .sheet-foot { padding: 14px 24px 18px; }
+
   .toast { bottom: 96px; }
 
   /* 桌面端鼠标操作：待办整行可点，不需要长按 */

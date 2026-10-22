@@ -191,6 +191,19 @@ function doneLabel(m) {
   return doneDay === m.plan_date ? toTimeStr(m.done_at) : `→ ${fmtDaySmart(doneDay)}`;
 }
 
+/**
+ * 新增的那一条要看得见：滚到它、闪一下。
+ * 列表长了以后「加了但没显示」很可能是加成了别的东西，或者加在了屏幕外 ——
+ * 后者不该让用户自己找。
+ */
+function revealMilestone(id) {
+  const node = id && detailEl ? detailEl.querySelector(`[data-ms="${id}"]`) : null;
+  if (!node) return;
+  node.scrollIntoView({ block: 'center', behavior: 'smooth' });
+  node.classList.add('is-new');
+  setTimeout(() => node.classList.remove('is-new'), 1400);
+}
+
 function renderDetail() {
   if (!detailGoalId || !detailEl) return;
   const s = getState();
@@ -252,7 +265,7 @@ function renderDetail() {
           <div class="meta">
             <span class="dim-bar" style="background:${dim.color};display:inline-block;vertical-align:-2px;margin-right:5px"></span>
             ${esc(dim.label)} · ${esc(rhythm.label)} ·
-            ${stats.total} 个里程碑里完成 ${stats.done} 个
+            <span style="white-space:nowrap">${stats.total} 个里程碑里完成 ${stats.done} 个</span>
           </div>
           <div class="meta">${esc(fmtDaySmart(g.start_date))} — ${esc(fmtDaySmart(g.due_date))}
             · ${esc(GOAL_STATUS_LABEL[g.status] || g.status)}</div>
@@ -310,16 +323,23 @@ function renderDetail() {
     });
   });
 
-  detailEl.querySelector('[data-add-step]').addEventListener('click', () => {
-    openAddStepSheet({ goalId: g.id, onCreated: () => { renderDetail(); update(); } });
+  // 「加一步」= 新增一个里程碑（不是待办）。写成待办时它会出现在今天页和日历，
+  // 但目标时间轴和进度都不动 —— 用户会看到「加了但列表里没有」。
+  const openAddStep = () => openAddStepSheet({
+    goalId: g.id,
+    asMilestone: true,
+    due: g.due_date,
+    onCreated: (id) => {
+      renderDetail();
+      update();
+      revealMilestone(id);
+    },
   });
 
+  detailEl.querySelector('[data-add-step]').addEventListener('click', openAddStep);
+
   const addMs = detailEl.querySelector('[data-add-ms]');
-  if (addMs) {
-    addMs.addEventListener('click', () => {
-      openAddStepSheet({ goalId: g.id, onCreated: () => { renderDetail(); update(); } });
-    });
-  }
+  if (addMs) addMs.addEventListener('click', openAddStep);
 
   const doneBtn = detailEl.querySelector('[data-complete-next]');
   if (doneBtn) {

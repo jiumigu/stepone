@@ -197,8 +197,30 @@ export function openGoalForm({ onCreated, prefillTitle = '' } = {}) {
 
 // ------------------------------------------------------------
 // 加一步（可指定目标 / 日期）
+//
+// 两种语义必须分开，否则「加了一步但目标里没有它」：
+//   asMilestone = true  → 写里程碑：进目标时间轴、进日历、完成 +10、算进度
+//   asMilestone = false → 写待办：进今天页 / 日历、完成 +2、不动进度
+// 目标详情页的「加一步」是前者（用户原话：「在目标中加一步，意味着新增一个里程碑」）。
 // ------------------------------------------------------------
-export function openAddStepSheet({ goalId = null, plan_date = todayStr(), onCreated } = {}) {
+export function openAddStepSheet({
+  goalId = null,
+  asMilestone = false,
+  plan_date = todayStr(),
+  due = null,
+  onCreated,
+} = {}) {
+  const isMs = Boolean(goalId && asMilestone);
+
+  // 少开一次原生日历弹层：常用日期直接给按钮，web 上比点开日历快得多
+  const quick = [
+    { label: '今天', value: todayStr() },
+    { label: '明天', value: addDays(todayStr(), 1) },
+  ];
+  if (due && due !== plan_date && !quick.some((q) => q.value === due)) {
+    quick.push({ label: '目标截止日', value: due });
+  }
+
   const html = `
     <div class="field">
       <label>这一步做什么</label>
@@ -207,25 +229,57 @@ export function openAddStepSheet({ goalId = null, plan_date = todayStr(), onCrea
     <div class="field">
       <label>放在哪天</label>
       <input type="date" data-date value="${plan_date}">
+      <div class="chips chips--quick" data-quick>
+        ${quick.map((q) => `<button type="button" data-day="${q.value}">${esc(q.label)}</button>`).join('')}
+      </div>
     </div>
-    <p class="hint">${goalId ? '完成后这一步会算进目标进度。' : '不挂目标也可以，它只是一件今天要做的事。'}</p>
+    <p class="hint">${isMs
+      ? '加的是里程碑：完成后 +10 分，算进目标进度。'
+      : goalId
+        ? '这一件会挂在目标下面，完成 +2 分，不改变目标进度。'
+        : '不挂目标也可以，它只是一件今天要做的事。'}</p>
   `;
 
   const sheet = openSheet({
-    title: goalId ? '为这个目标加一步' : '加一件',
+    title: isMs ? '为这个目标加一步' : goalId ? '挑一件今天要做的事' : '加一件',
     html,
     footer: '<button class="btn btn-primary btn-block" data-save="1">加进去</button>',
   });
 
   const body = sheet.body;
+  const dateInput = body.querySelector('[data-date]');
+
+  const syncQuick = () => {
+    body.querySelectorAll('[data-day]').forEach((b) => {
+      b.classList.toggle('is-active', b.dataset.day === dateInput.value);
+    });
+  };
+  body.querySelectorAll('[data-day]').forEach((b) => {
+    b.addEventListener('click', () => {
+      dateInput.value = b.dataset.day;
+      syncQuick();
+    });
+  });
+  dateInput.addEventListener('change', syncQuick);
+  syncQuick();
+
   sheet.el.addEventListener('click', (e) => {
     if (!e.target.closest('[data-save]')) return;
     const title = body.querySelector('[data-title]').value.trim();
-    const date = body.querySelector('[data-date]').value || todayStr();
+    const date = dateInput.value || todayStr();
     if (!title) {
       toast('写一句要做什么', 'warn');
       return;
     }
+
+    if (isMs) {
+      const id = addMilestone(goalId, { title, plan_date: date });
+      sheet.close();
+      toast(date === todayStr() ? '加了一步 · 就在今天' : `加了一步 · ${fmtDay(date)}`);
+      if (onCreated) onCreated(id);
+      return;
+    }
+
     addTodo({ title, plan_date: date, goal_id: goalId });
     sheet.close();
     toast(date === todayStr() ? '加到今天了' : `加到 ${fmtDay(date)} 了`);

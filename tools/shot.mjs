@@ -288,6 +288,72 @@ await evaluate(`document.querySelector('[data-new]').click()`);
 await shoot('07-goal-form');
 await evaluate(`document.querySelector('.sheet-x')?.click()`);
 
+// 交互核验：「加一步」必须新增里程碑（不是待办），并且桌面端抽屉要居中、
+// 日期框要够大 —— 贴底 260px 的抽屉装不下原生日历弹层（真实反馈）
+await evaluate(`document.querySelector('[data-tab="goals"]').click()`);
+await sleep(240);
+await evaluate(`document.querySelector('[data-goal]').click()`);
+await sleep(400);
+
+// 先把可能残留的弹层收干净，后面只操作最上面那一张
+// （残留的旧弹层会抢走 [data-save] 的点击，让断言静默失效）
+await evaluate(`document.querySelectorAll('.sheet-wrap.is-on .sheet-x').forEach((b) => b.click())`);
+await sleep(420);
+
+const topSheet = `[...document.querySelectorAll('.sheet-wrap.is-on')].pop()`;
+
+const stepBefore = await evaluate(`(async () => {
+  const store = await import(new URL('./src/core/store.js', location.href).href);
+  const st = store.getState();
+  return {
+    rows: document.querySelectorAll('.detail .ms-item').length,
+    total: st.milestone.length,
+    todos: st.todo.length,
+  };
+})()`, true);
+
+await evaluate(`document.querySelector('[data-add-step]').click()`);
+await sleep(420);
+const sheetBox = await evaluate(`(() => {
+  const w = ${topSheet};
+  if (!w) return { missing: true };
+  const s = w.querySelector('.sheet').getBoundingClientRect();
+  const d = w.querySelector('input[type=date]').getBoundingClientRect();
+  const c = w.querySelector('.chips--quick');
+  return {
+    title: w.querySelector('h2')?.textContent.trim(),
+    sheetW: Math.round(s.width), sheetH: Math.round(s.height),
+    topGap: Math.round(s.top), bottomGap: Math.round(innerHeight - s.bottom),
+    dateW: Math.round(d.width), dateH: Math.round(d.height),
+    quick: c ? [...c.querySelectorAll('button')].map((b) => b.textContent.trim()) : [],
+  };
+})()`);
+await shoot('12-add-step-sheet');
+
+await evaluate(`(() => {
+  const w = ${topSheet};
+  const t = w.querySelector('[data-title]');
+  t.value = '先写三条提纲';
+  t.dispatchEvent(new Event('input', { bubbles: true }));
+  w.querySelector('[data-save]').click();
+})()`);
+await sleep(520);
+
+const stepAfter = await evaluate(`(async () => {
+  const store = await import(new URL('./src/core/store.js', location.href).href);
+  const st = store.getState();
+  return {
+    rows: document.querySelectorAll('.detail .ms-item').length,
+    total: st.milestone.length,
+    todos: st.todo.length,
+    head: document.querySelector('.detail-hero .meta')?.textContent.replace(/\s+/g, ' ').trim(),
+    flashed: document.querySelectorAll('.detail .ms-item.is-new').length,
+    lastTitle: [...document.querySelectorAll('.detail .ms-title')].pop()?.textContent.trim(),
+  };
+})()`, true);
+console.log('add-step:', JSON.stringify({ before: stepBefore, sheet: sheetBox, after: stepAfter }));
+await shoot('13-ms-added');
+
 console.log('console issues:', consoleIssues.length ? consoleIssues : 'none');
 console.log('out dir:', OUT);
 

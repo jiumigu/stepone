@@ -277,18 +277,21 @@ export function updateMilestone(id, patch) {
   });
 }
 
-/** 给目标追加一个里程碑 */
-export function addMilestone(goalId, { title, plan_date }) {
+/**
+ * 给目标追加一个里程碑。
+ * @returns {string} 新里程碑 id —— 调用方要滚动定位它，所以不能只写不认。
+ */
+export function addMilestone(goalId, { title, plan_date } = {}) {
+  const id = uid('ms');
   commit((s) => {
     const goal = s.goal.find((g) => g.id === goalId);
+    if (!goal) return;
     const list = milestonesOf(goalId, s);
     const order = list.length ? Math.max(...list.map((m) => m.order_num)) + 1 : 1;
     // 兜底名字和自动生成保持同一口径，不另写一套「第 N 步」
-    const fallback = goal
-      ? milestoneTitle(goal.rhythm, order - 1, goal.title) || `第 ${order} 步`
-      : `第 ${order} 步`;
+    const fallback = milestoneTitle(goal.rhythm, order - 1, goal.title) || `第 ${order} 步`;
     s.milestone.push({
-      id: uid('ms'),
+      id,
       goal_id: goalId,
       title: String(title || '').trim() || fallback,
       plan_date: plan_date || todayStr(),
@@ -299,6 +302,7 @@ export function addMilestone(goalId, { title, plan_date }) {
     });
     recalcGoal(goalId, s);
   });
+  return id;
 }
 
 /** 删除里程碑（进度无定义时回到 null；至少保留 1 个由 UI 拦截） */

@@ -21,7 +21,10 @@ const {
   safeParse, migrate, SCHEMA_VERSION,
 } = await import('../src/core/store.js');
 const { registerGiftSync, addGift, giftsWithStatus, redeemGift, deriveGiftStatus } = await import('../src/core/gifts.js');
-const { createGoal, goalStats, milestonesOf, completeMilestone, nextPendingMilestone, prefixMilestoneTitles } = await import('../src/core/goals.js');
+const {
+  createGoal, goalStats, milestonesOf, completeMilestone, nextPendingMilestone,
+  prefixMilestoneTitles, addMilestone, revertMilestone,
+} = await import('../src/core/goals.js');
 const { capture, captureMany, addTodo, completeTodo, revertTodo, removeTodo } = await import('../src/core/todos.js');
 const { addJoy } = await import('../src/core/joy.js');
 const { balance } = await import('../src/core/points.js');
@@ -581,6 +584,52 @@ check('40 老数据补前缀：只补「第 N 个月」裸名字，手改过的�
   assert.ok(titles.includes('自己改的名字'));
   assert.ok(titles.includes('复盘习惯 · 第 1 个月'));
   assert.equal(prefixMilestoneTitles(gid), 0); // 幂等
+});
+
+check('41 「加一步」写的是里程碑：总数 / 进度 / 返回值都对得上', () => {
+  const gid = createGoal({
+    title: '准备年终汇报考核', dimension: 'career',
+    start_date: today, due_date: addDays(today, 70), rhythm: 'once',
+  });
+  const before = goalStats(gid, getState());
+  assert.equal(before.total, 1);
+
+  const id = addMilestone(gid, { title: '写好汇报提纲', plan_date: addDays(today, 3) });
+  const after = goalStats(gid, getState());
+
+  // 用户报过的 bug：加了一步，目标里没有它，只在日历里能看见
+  assert.equal(after.total, before.total + 1, '里程碑总数没有 +1');
+  assert.ok(id, 'addMilestone 要返回 id，否则调用方没法定位新条目');
+  assert.ok(milestonesOf(gid, getState()).some((m) => m.id === id), '新里程碑不在目标时间轴里');
+  assert.equal(getState().milestone.find((m) => m.id === id).status, 'pending');
+  // 进度口径同步：0/2 而不是停在 0/1
+  assert.equal(after.done, 0);
+  assert.equal(after.ratio, 0);
+  assert.equal(getState().goal.find((g) => g.id === gid).progress, 0);
+  // 没写名字时走同一个命名口径，不另造「第 N 步」
+  const auto = addMilestone(gid, {});
+  assert.equal(getState().milestone.find((m) => m.id === auto).title, '准备年终汇报考核');
+});
+
+check('42 给已完成的目标加一步：回到进行中，已发的 +30 不回收', () => {
+  const gid = createGoal({
+    title: '给阳台装灯', dimension: 'life',
+    start_date: today, due_date: addDays(today, 5), rhythm: 'once',
+  });
+  const only = milestonesOf(gid, getState())[0];
+  completeMilestone(only.id);
+  assert.equal(getState().goal.find((g) => g.id === gid).status, 'completed');
+  const balAfterDone = currentBalance(getState());
+
+  addMilestone(gid, { title: '换成暖光灯泡', plan_date: addDays(today, 6) });
+  const g = getState().goal.find((x) => x.id === gid);
+  assert.equal(g.status, 'in_progress', '加了新一步就不是「已完成」了');
+  assert.equal(g.completed_at, null);
+  assert.equal(currentBalance(getState()), balAfterDone, '+30 不回收（已知边界，见 audit §4）');
+
+  // 再撤销回去：仍然回到已完成，但不会重发 +30
+  revertMilestone(milestonesOf(gid, getState()).find((m) => m.title === '换成暖光灯泡').id);
+  assert.equal(currentBalance(getState()), balAfterDone);
 });
 
 // ------------------------------------------------------------
