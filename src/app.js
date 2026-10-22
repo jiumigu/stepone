@@ -197,7 +197,19 @@ function boot() {
   go('today');
 
   const s = getState();
-  if (!s.setting.onboarded) setTimeout(showOnboarding, 420);
+  // 引导要等 420ms 才弹，新用户手快时可能已经先点开了某个面板 ——
+  // 两层叠在一起，关掉上面一层后下面那张还在，看着像卡了。
+  // 所以先等最上层空出来再弹（最多等 20 秒，之后就放弃，别打扰）。
+  if (!s.setting.onboarded) {
+    const tryShow = (tries = 0) => {
+      if (document.querySelector('.sheet-wrap.is-on')) {
+        if (tries < 40) setTimeout(() => tryShow(tries + 1), 500);
+        return;
+      }
+      showOnboarding();
+    };
+    setTimeout(tryShow, 420);
+  }
 }
 
 if (document.readyState === 'loading') {
